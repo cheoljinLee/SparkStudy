@@ -1,8 +1,5 @@
 package com.gmail.hancury.sparkstudy
 
-import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.functions._
-
 /**
   * Created by cury on 2017-12-11.
   */
@@ -10,8 +7,23 @@ import org.apache.spark.sql.functions._
 object SimpleApp {
   def main(args: Array[String]): Unit = {
 
+    import org.apache.spark.sql.SparkSession
+
     val spark = SparkSession.builder().appName("SimpleApp").master("local").getOrCreate()
-    import spark.sqlContext.implicits._
+    val sparkContext = spark.sparkContext
+
+    // 1. read.csv
+    spark.read.format("csv").option("header","true").load("data.csv").show
+
+    // 2. DataFrame with Schema
+    import org.apache.spark.sql.types.{StructType, StructField, StringType, IntegerType}
+    import org.apache.spark.sql.Row
+
+    val schema = StructType(StructField("k", StringType, true) :: StructField("v", IntegerType, false) :: Nil)
+    spark.createDataFrame(sparkContext.emptyRDD[Row], schema).printSchema
+
+    // 3. rollup & cube
+    import spark.implicits._
 
     val sales = Seq(
       ("Warsaw", 2016, 100),
@@ -21,13 +33,7 @@ object SimpleApp {
       ("Toronto", 2017, 50)
     ).toDF("city", "year", "amount")
 
-    sales.printSchema()
-
-    sales.rollup("city","year")
-      .sum("amount")
-      .orderBy(col("city").desc, col("year").desc)
-      .show()
-
     sales.cube("city","year").count.show
+    sales.rollup("city","year").count.show
   }
 }
